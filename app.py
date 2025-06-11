@@ -1,7 +1,7 @@
 import streamlit as st
 from PIL import Image
 import numpy as np
-import keras
+import keras # We now need to import keras directly
 
 # --- PAGE CONFIGURATION ---
 # Sets the title and icon that appear in the browser tab
@@ -16,9 +16,9 @@ st.sidebar.header("About This Project")
 st.sidebar.info("""
     This application uses a deep learning model to detect anomalies in welded joints.
 
-    The model is a Convolutional Neural Network (CNN) trained on a dataset of welding images using TensorFlow and Keras. It was created with Google's Teachable Machine and deployed in this Streamlit application.
+    The model is a Convolutional Neural Network (CNN) trained on a dataset of welding images. It was created with Google's Teachable Machine (using the SavedModel format) and deployed in this Streamlit application.
 """)
-st.sidebar.success("Project by: Ashvin (Modified by AI)")
+st.sidebar.success("Project by: Daksh")
 
 
 # --- MODEL LOADING ---
@@ -26,19 +26,21 @@ st.sidebar.success("Project by: Ashvin (Modified by AI)")
 def load_keras_model():
     """
     Loads the Keras model and labels from the disk.
-    The model is loaded as a TFSMLayer, which is the Keras 3 way for SavedModels.
+    This function is designed to load a TensorFlow SavedModel format,
+    which is exported from Teachable Machine.
     """
-    # IMPORTANT: Make sure these file paths are correct for your project
+    # --- IMPORTANT ---
+    # Make sure 'my_model' is the name of the folder containing your SavedModel files.
+    # Make sure 'labels.txt' is the correct name for your labels file.
     labels_path = "labels.txt"
-    model_path = "keras_model.h5"  # Or your model's folder name if it's a SavedModel directory
+    model_path = "model.savedmodel" # This should be the FOLDER name
 
     # Load the labels
     with open(labels_path, "r") as f:
         labels = [line.strip() for line in f.readlines()]
 
-    # Load the model
-    # Note: If your model is a .h5 file, you might need to load it differently, e.g., with keras.models.load_model()
-    # This example assumes a TensorFlow SavedModel format, which is common with Teachable Machine.
+    # Load the SavedModel as a special Keras Layer (TFSMLayer)
+    # This is the correct method for Keras 3 and TensorFlow 2+
     model_layer = keras.layers.TFSMLayer(model_path, call_endpoint='serving_default')
 
     return model_layer, labels
@@ -53,7 +55,8 @@ def predict(image_to_predict, model_layer, labels):
 
     # Resize and crop the image to 224x224
     size = (224, 224)
-    image = image_to_predict.resize(size)
+    # The image needs to be converted to RGB for models trained on color images
+    image = image_to_predict.convert("RGB").resize(size)
 
     # Convert image to numpy array and normalize it
     image_array = np.asarray(image)
@@ -67,7 +70,7 @@ def predict(image_to_predict, model_layer, labels):
     prediction_output = model_layer(data)
     prediction_tensor = list(prediction_output.values())[0]
 
-    # Get the prediction array
+    # Get the prediction array from the tensor
     prediction = prediction_tensor.numpy()[0]
 
     # Find the index of the highest probability
@@ -83,7 +86,7 @@ def predict(image_to_predict, model_layer, labels):
 st.title("🔥 Welding Anomaly Detection")
 with st.expander("ℹ How to Use This App"):
     st.write("""
-        1. *Upload an image* of a welded joint using the file uploader.
+        1. *Upload an image* of a welded joint using the file uploader below.
         2. The AI model will analyze the image for potential anomalies or defects.
         3. The *Status* and *Confidence Score* will be displayed on the right.
         4. *'Normal'* indicates the weld has passed inspection. *'Anomaly'* suggests a potential defect was found.
@@ -94,7 +97,7 @@ uploaded_file = st.file_uploader("Upload a weld image for inspection...", type=[
 
 if uploaded_file is not None:
     # Open and display the uploaded image
-    image = Image.open(uploaded_file).convert("RGB")
+    image = Image.open(uploaded_file)
 
     st.header("Analysis Results")
     col1, col2 = st.columns(2)
@@ -109,10 +112,12 @@ if uploaded_file is not None:
         with st.spinner('Analyzing the image...'):
             # Load the model and labels
             model_layer, labels = load_keras_model()
+            # Run prediction
             class_name, confidence_score = predict(image, model_layer, labels)
 
         # Display the richer, color-coded result
-        if "anomaly" in class_name.lower(): # More flexible check for the anomaly class
+        # Check if 'anomaly' or 'defective' is in the class name for flexibility
+        if any(keyword in class_name.lower() for keyword in ["anomaly", "defective"]):
             st.error(f"Status: {class_name}")
             st.write(f"*Confidence:* {confidence_score:.2%}")
             st.warning("*Recommendation:* This weld should be flagged for manual inspection.")
