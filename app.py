@@ -125,17 +125,3 @@ if uploaded_file is not None:
             st.success(f"Status: {class_name}")
             st.write(f"*Confidence:* {confidence_score:.2%}")
             st.info("*Recommendation:* This weld has passed the automated inspection.")
-else:
-    # 3. Example Cases when no file is uploaded
-    st.header("Example Cases")
-    st.write("No image uploaded yet. Check out these examples of normal and anomalous welds:")
-
-    col1, col2 = st.columns(2)
-    with col1:
-        st.subheader("Normal Weld")
-        # IMPORTANT: Replace with the actual path to your normal weld example image
-        st.image("normal_weld_example.jpg", caption="A weld that would pass inspection.")
-    with col2:
-        st.subheader("Anomalous Weld")
-        # IMPORTANT: Replace with the actual path to your anomalous weld example image
-        st.image("anomalous_weld_example.jpg", caption="A weld with a potential defect.")
